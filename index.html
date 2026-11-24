@@ -27,6 +27,12 @@ button{font:inherit;color:inherit;cursor:pointer}
 .chip{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--bd);border-radius:999px;padding:5px 12px 5px 6px;box-shadow:var(--sh);font-variant-numeric:tabular-nums;font-weight:600;font-size:.88rem;white-space:nowrap;flex:none}
 .chip .dot{width:8px;height:8px;border-radius:50%;background:var(--mu)}
 .chip.run .dot{background:var(--ok);box-shadow:0 0 0 3px var(--okb)}
+.hr{display:flex;gap:8px;align-items:center;flex:none}
+.gear{width:38px;height:38px;border-radius:50%;background:var(--card);border:1px solid var(--bd);box-shadow:var(--sh);font-size:1.05rem;display:flex;align-items:center;justify-content:center;padding:0}
+.lbl{font-weight:600;margin:16px 0 8px}
+.stp{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:10px}
+.stp button{width:48px;height:48px;border-radius:12px;border:2px solid var(--bd);background:var(--bg);font-size:1.4rem;font-weight:700}
+.stp span{font-size:1.7rem;font-weight:700;min-width:120px;text-align:center;font-variant-numeric:tabular-nums}
 .ring{transform:rotate(-90deg)}.ring .rb{fill:none;stroke:var(--bd)}.ring .rf{fill:none;stroke:var(--ac);stroke-linecap:round;transition:stroke-dashoffset .6s}
 .ring.done .rf{stroke:var(--ok)}
 .tabs{display:flex;gap:6px;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:4px;margin-bottom:14px}
@@ -86,7 +92,7 @@ textarea.in{min-height:90px;font-size:.85rem}
 <main>
 <div class="top">
   <div class="brand">✈️ Estudos PC<small>Treino para o curso de Piloto Comercial</small></div>
-  <button class="chip" id="tchip" aria-label="Tempo de estudo hoje"><svg class="ring" id="cring" width="26" height="26" viewBox="0 0 36 36"><circle class="rb" cx="18" cy="18" r="15" stroke-width="4"/><circle class="rf" cx="18" cy="18" r="15" stroke-width="4" stroke-dasharray="94.25" stroke-dashoffset="94.25"/></svg><span id="ctxt">0:00</span><span class="dot"></span></button>
+  <div class="hr"><button class="chip" id="tchip" aria-label="Tempo de estudo hoje"><svg class="ring" id="cring" width="26" height="26" viewBox="0 0 36 36"><circle class="rb" cx="18" cy="18" r="15" stroke-width="4"/><circle class="rf" cx="18" cy="18" r="15" stroke-width="4" stroke-dasharray="94.25" stroke-dashoffset="94.25"/></svg><span id="ctxt">0:00</span><span class="dot"></span></button><button class="gear" id="gear" aria-label="Configurações">⚙️</button></div>
 </div>
 <div class="tabs"><button id="t1" class="on">Início</button><button id="t2">Histórico</button></div>
 <div id="home"></div>
@@ -94,6 +100,7 @@ textarea.in{min-height:90px;font-size:.85rem}
 <div class="meta"><span id="pos"></span><span id="sc"></span></div>
 <div class="card" id="box"></div></div>
 <div id="hs" hidden></div>
+<div id="cfg" hidden></div>
 </main>
 <div class="toast" id="toast" hidden></div>
 <script>
@@ -260,10 +267,10 @@ let typed=false;try{typed=!!localStorage.getItem("c152fmt")}catch(e){}
 const LK="c152quiz",LKT="pcTime";
 function lsLoad(){try{const l=JSON.parse(localStorage.getItem(LK));if(l)l.seen=l.seen||{};return l||null}catch(e){return null}}
 function lsSave(){try{localStorage.setItem(LK,JSON.stringify(H))}catch(e){}}
-function lsTime(){try{const t=JSON.parse(localStorage.getItem(LKT));if(t&&t.d)TM={d:t.d,g:t.g||1800}}catch(e){}}
+function lsTime(){try{const t=JSON.parse(localStorage.getItem(LKT));if(t&&t.d)TM={d:t.d,g:t.g||1800,i:t.i||3}}catch(e){}}
 async function saveTime(){
   try{localStorage.setItem(LKT,JSON.stringify(TM))}catch(e){}
-  if(db){try{await db.collection("data/users/"+uid).doc("time").set({d:TM.d,g:TM.g})}catch(e){}}
+  if(db){try{await db.collection("data/users/"+uid).doc("time").set({d:TM.d,g:TM.g,i:TM.i||3})}catch(e){}}
 }
 async function init(){
   lsTime();
@@ -274,7 +281,7 @@ async function init(){
       H.runs=[];H.weak={};H.seen={};
       sn.docs.forEach(x=>{const d=x.data()||{};
         if(x.id==="weak"){H.weak=d.c||{};H.seen=d.s||{}}
-        else if(x.id==="time"){const loc=TM.d;TM={d:d.d||{},g:d.g||TM.g};Object.keys(loc).forEach(k=>{if((loc[k]||0)>(TM.d[k]||0))TM.d[k]=loc[k]})}
+        else if(x.id==="time"){const loc=TM.d;TM={d:d.d||{},g:d.g||TM.g,i:d.i||TM.i||3};Object.keys(loc).forEach(k=>{if((loc[k]||0)>(TM.d[k]||0))TM.d[k]=loc[k]})}
         else if(x.id[0]==="r")H.runs.push(d)});
     }else{const l=lsLoad();if(l)H=l}
   }catch(e){const l=lsLoad();if(l)H=l}
@@ -292,7 +299,8 @@ async function saveRun(){
 }
 
 /* ---------- cronômetro da meta diária ---------- */
-const IDLE=180000; // 3 min sem tocar na tela = pausa
+const idleMs=()=>(TM.i||3)*60000; // tempo parado até pausar
+let inRound=false; // só conta durante um questionário
 const dk=(d=new Date())=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 let lastAct=Date.now(),blurred=false,running=false,unsaved=0,goalMsg=false;
 ["pointerdown","keydown","touchstart","wheel","scroll"].forEach(ev=>addEventListener(ev,()=>{lastAct=Date.now();blurred=false},{passive:true,capture:true}));
@@ -310,7 +318,7 @@ function streak(){
   return n;
 }
 function tick(uiOnly){
-  const on=document.visibilityState==="visible"&&!blurred&&Date.now()-lastAct<IDLE;
+  const on=inRound&&view==="quiz"&&document.visibilityState==="visible"&&!blurred&&Date.now()-lastAct<idleMs();
   if(!uiOnly&&on){
     const k=dk(),before=TM.d[k]||0;TM.d[k]=before+1;unsaved++;
     if(before<TM.g&&TM.d[k]>=TM.g&&!goalMsg){goalMsg=true;toast("🎉 Meta de hoje batida! "+Math.round(TM.g/60)+" min de estudo.");saveTime();if(view==="home")drawHome()}
@@ -321,7 +329,7 @@ function tick(uiOnly){
   $("tchip").className="chip"+(on?" run":"");
   $("ctxt").textContent=fmt(s)+" / "+Math.round(TM.g/60)+" min";
   const cr=$("cring");cr.querySelector(".rf").style.strokeDashoffset=94.25*(1-p);cr.classList.toggle("done",done);
-  const gr=$("gring");if(gr){gr.querySelector(".rf").style.strokeDashoffset=301.6*(1-p);gr.classList.toggle("done",done);$("gtime").textContent=fmt(s);$("gstat").textContent=on?"▶ Contando":"⏸ Pausado"}
+  const gr=$("gring");if(gr){gr.querySelector(".rf").style.strokeDashoffset=301.6*(1-p);gr.classList.toggle("done",done);$("gtime").textContent=fmt(s);$("gstat").textContent=on?"▶ Contando":"⏸ Pausado: conta só durante um questionário"}
 }
 setInterval(()=>tick(false),1000);
 $("tchip").onclick=()=>go("home");
@@ -329,12 +337,13 @@ $("tchip").onclick=()=>go("home");
 /* ---------- navegação ---------- */
 let view="home";
 function go(v){
-  view=v;$("home").hidden=v!=="home";$("qz").hidden=v!=="quiz";$("hs").hidden=v!=="hist";
-  $("t1").className=v!=="hist"?"on":"";$("t2").className=v==="hist"?"on":"";
-  if(v==="home"){done=true;drawHome()}if(v==="hist")drawHist();
+  view=v;if(v!=="quiz")inRound=false;
+  $("home").hidden=v!=="home";$("qz").hidden=v!=="quiz";$("hs").hidden=v!=="hist";$("cfg").hidden=v!=="cfg";
+  $("t1").className=(v==="home"||v==="quiz")?"on":"";$("t2").className=v==="hist"?"on":"";
+  if(v==="home"){done=true;drawHome()}if(v==="hist")drawHist();if(v==="cfg")drawCfg();tick(true);
   scrollTo(0,0);
 }
-$("t1").onclick=()=>go("home");$("t2").onclick=()=>go("hist");
+$("t1").onclick=()=>go("home");$("gear").onclick=()=>go("cfg");$("t2").onclick=()=>go("hist");
 
 /* ---------- tela inicial ---------- */
 function lastPct(id){const r=H.runs.filter(r=>(r.tp||"c152")===id).sort((a,b)=>b.t-a.t)[0];return r?Math.round(r.f/r.n*100):null}
@@ -346,11 +355,11 @@ function drawHome(){
   const tx=el("div");g.appendChild(tx);
   tx.appendChild(el("h2",null,s>=TM.g?"Meta de hoje batida! 🎉":"Meta diária de estudo"));
   tx.appendChild(el("p",null,s>=TM.g?"Pode continuar: todo tempo extra também conta.":"Faltam "+Math.ceil((TM.g-s)/60)+" min para hoje."));
-  tx.appendChild(el("p",null,"O tempo só conta com o app aberto na tela. Sai do app ou fica 3 min parado, ele pausa."));
+  tx.appendChild(el("p",null,"O tempo só conta enquanto você responde um questionário. Sai do app ou fica "+(TM.i||3)+" min parado, ele pausa."));
   const pl=el("span","pill","🔥 "+st+(st===1?" dia":" dias")+" seguidos");tx.appendChild(pl);
   tx.appendChild(el("br"));
   const stat=el("span","note");stat.id="gstat";tx.appendChild(stat);tx.appendChild(document.createTextNode(" · "));
-  const cg=el("button","lnk","Mudar meta");cg.onclick=()=>{const o=[15,30,45,60,90],i=o.indexOf(gm);TM.g=o[(i+1)%o.length]*60;goalMsg=todayS()>=TM.g;saveTime();drawHome();tick(true);toast("Meta diária: "+Math.round(TM.g/60)+" min")};tx.appendChild(cg);
+  const cg=el("button","lnk","⚙️ Ajustar meta");cg.onclick=()=>go("cfg");tx.appendChild(cg);
   const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
   const standalone=navigator.standalone===true||(window.matchMedia&&matchMedia("(display-mode: standalone)").matches);
   if(isIOS&&!standalone&&typeof claude==="undefined"&&location.protocol==="https:"){
@@ -412,7 +421,7 @@ function smart(n){
   }).sort((a,b)=>b[1]-a[1]).slice(0,n).map(a=>a[0]);
 }
 function menu(){
-  done=true;
+  done=true;inRound=false;tick(true);
   $("pb").style.width="0";$("pos").textContent=tName(TPc);$("sc").textContent=LT().length+" questões";
   const b=$("box");b.innerHTML="";
   const bk=el("button","back","← Temas");bk.onclick=()=>go("home");b.appendChild(bk);
@@ -434,7 +443,7 @@ function menu(){
 /* ---------- quiz ---------- */
 function show(){
   if(i>=deck.length)return end();
-  cur=deck[i];tries=0;done=false;
+  cur=deck[i];tries=0;done=false;inRound=true;
   $("pb").style.width=(i/deck.length*100)+"%";
   $("pos").textContent=tName(TPc)+" · "+(i+1)+" de "+deck.length;
   $("sc").textContent="✓ de primeira: "+first;
@@ -491,7 +500,7 @@ function giveUp(){
   $("inp").disabled=true;$("sb").hidden=true;$("gb").hidden=true;$("next").hidden=false;$("next").focus();
 }
 function end(){
-  done=true;saveRun();
+  done=true;inRound=false;tick(true);saveRun();
   $("pb").style.width="100%";$("pos").textContent=tName(TPc);
   const b=$("box");b.innerHTML="";
   const pc=Math.round(first/deck.length*100);
@@ -508,6 +517,28 @@ document.addEventListener("keydown",ev=>{if(view!=="quiz")return;
   const k=parseInt(ev.key);
   if(k>=1&&k<=4&&!done){const bs=document.querySelectorAll(".opt");if(bs[k-1])bs[k-1].click()}
 });
+
+/* ---------- configurações ---------- */
+function drawCfg(){
+  const h=$("cfg");h.innerHTML="";
+  const c=el("div","card");h.appendChild(c);
+  const bk=el("button","back","← Voltar");bk.onclick=()=>go("home");c.appendChild(bk);
+  c.appendChild(el("p","q","⚙️ Configurações"));
+  let g=Math.round(TM.g/60),it=TM.i||3;
+  c.appendChild(el("div","lbl","Meta diária de estudo"));
+  const st=el("div","stp"),mi=el("button",null,"−"),vv=el("span"),pl=el("button",null,"+");
+  mi.setAttribute("aria-label","Diminuir 5 minutos");pl.setAttribute("aria-label","Aumentar 5 minutos");
+  st.append(mi,vv,pl);c.appendChild(st);
+  const ch=el("div","seg");[15,30,45,60,90].forEach(v=>{const b=el("button",null,v+" min");b.dataset.v=v;b.onclick=()=>{g=v;upd()};ch.appendChild(b)});c.appendChild(ch);
+  mi.onclick=()=>{g=Math.max(5,g-5);upd()};pl.onclick=()=>{g=Math.min(240,g+5);upd()};
+  c.appendChild(el("div","lbl","Pausar o cronômetro depois de ficar parado por"));
+  const ch2=el("div","seg");[1,2,3,5].forEach(v=>{const b=el("button",null,v+" min");b.dataset.v=v;b.onclick=()=>{it=v;upd()};ch2.appendChild(b)});c.appendChild(ch2);
+  c.appendChild(el("p","note","O tempo só conta enquanto você responde um questionário, com o app aberto na tela. Fora disso (tela inicial, histórico, configurações) ele fica pausado."));
+  const sv=el("button","go","Salvar");sv.style.marginTop="16px";
+  sv.onclick=()=>{TM.g=g*60;TM.i=it;goalMsg=todayS()>=TM.g;saveTime();toast("✓ Meta: "+g+" min por dia");go("home")};c.appendChild(sv);
+  function upd(){vv.textContent=g+" min";ch.querySelectorAll("button").forEach(b=>b.className=+b.dataset.v===g?"on":"");ch2.querySelectorAll("button").forEach(b=>b.className=+b.dataset.v===it?"on":"")}
+  upd();
+}
 
 /* ---------- histórico ---------- */
 let HT="all";
