@@ -30,6 +30,13 @@ button{font:inherit;color:inherit;cursor:pointer}
 .hr{display:flex;gap:8px;align-items:center;flex:none}
 .gear{width:38px;height:38px;border-radius:50%;background:var(--card);border:1px solid var(--bd);box-shadow:var(--sh);font-size:1.05rem;display:flex;align-items:center;justify-content:center;padding:0}
 .lbl{font-weight:600;margin:16px 0 8px}
+.pbtn{display:block;background:none;border:0;padding:3px 0 0;color:var(--ac);font-size:.85rem;font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.prow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-top:1px solid var(--bd)}
+.pnm{display:flex;align-items:center;gap:10px;min-width:0}.pnm b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pem{font-size:1.5rem}
+.pact{display:flex;gap:6px;align-items:center;flex:none}
+.sbtn{background:var(--bg);border:1.5px solid var(--bd);border-radius:9px;padding:7px 11px;font-weight:600;font-size:.85rem}.sbtn.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+.emo{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}.emo button{width:46px;height:46px;border-radius:10px;border:2px solid var(--bd);background:var(--bg);font-size:1.35rem;padding:0}.emo button.on{border-color:var(--ac);background:var(--ac2)}
+.dang{border-color:var(--er)!important;color:var(--er)!important}
 .area{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:18px 16px;box-shadow:var(--sh);margin-bottom:12px}
 .area:hover{border-color:var(--ac)}
 .aic{flex:none;width:58px;height:58px;border-radius:16px;background:var(--ac2);display:flex;align-items:center;justify-content:center;font-size:1.9rem}
@@ -107,7 +114,7 @@ textarea.in{min-height:90px;font-size:.85rem}
 <body>
 <main>
 <div class="top">
-  <div class="brand">✈️ Estudos PC<small>Treino para o curso de Piloto Comercial</small></div>
+  <div class="brand">✈️ Estudos PC<button class="pbtn" id="pbtn" aria-label="Trocar de perfil"></button></div>
   <div class="hr"><button class="chip" id="tchip" aria-label="Tempo de estudo hoje"><svg class="ring" id="cring" width="26" height="26" viewBox="0 0 36 36"><circle class="rb" cx="18" cy="18" r="15" stroke-width="4"/><circle class="rf" cx="18" cy="18" r="15" stroke-width="4" stroke-dasharray="94.25" stroke-dashoffset="94.25"/></svg><span id="ctxt">0:00</span><span class="dot"></span></button><button class="gear" id="gear" aria-label="Configurações">⚙️</button></div>
 </div>
 <div class="tabs"><button id="t1" class="on">Início</button><button id="t3">Análise</button><button id="t2">Histórico</button></div>
@@ -118,6 +125,7 @@ textarea.in{min-height:90px;font-size:.85rem}
 <div id="an" hidden></div>
 <div id="hs" hidden></div>
 <div id="cfg" hidden></div>
+<div id="pf" hidden></div>
 </main>
 <div class="toast" id="toast" hidden></div>
 <script>
@@ -252,7 +260,7 @@ const TEMAS=[
 /* ↑ Cole novos temas aqui, separados por vírgula. */
 ];
 
-const APPV="24/11/2026 · v5";
+const APPV="24/11/2026 · v6";
 const CATS=[["clube","Aeroclube","🛩️","Tabela de estudo e conteúdos do C152"],["pc","Piloto Comercial","🎓","Teoria do curso PC"]];
 let CATc="clube";
 const ALL=[],KM={};
@@ -281,40 +289,63 @@ function build(e){
   return{q,ans,g,idx:e.k,ex:f[4]||"",opts:sh([ans,...ds])};
 }
 
-/* ---------- estado e armazenamento ---------- */
-let db=null,uid=null,H={runs:[],weak:{},seen:{}},TM={d:{},g:1800};
+/* ---------- perfis, estado e armazenamento ---------- */
+let db=null,uid=null,H={runs:[],weak:{},seen:{}},TM={d:{},g:1800,i:3};
 let typed=false;try{typed=!!localStorage.getItem("c152fmt")}catch(e){}
-const LK="c152quiz",LKT="pcTime";
-function lsLoad(){try{const l=JSON.parse(localStorage.getItem(LK));if(l)l.seen=l.seen||{};return l||null}catch(e){return null}}
-function lsSave(){try{localStorage.setItem(LK,JSON.stringify(H))}catch(e){}}
-function lsTime(){try{const t=JSON.parse(localStorage.getItem(LKT));if(t&&t.d)TM={d:t.d,g:t.g||1800,i:t.i||3}}catch(e){}}
+const LKP="pcProfiles",LK="c152quiz",LKT="pcTime";
+let PR={list:[{id:"p1",n:"Meu perfil",e:"🧑‍✈️"}],cur:"p1"};
+try{const p=JSON.parse(localStorage.getItem(LKP));if(p&&p.list&&p.list.length){PR=p;if(!PR.list.some(x=>x.id===PR.cur))PR.cur=PR.list[0].id}}catch(e){}
+const prof=()=>PR.list.find(x=>x.id===PR.cur)||PR.list[0];
+const KK=(b,id)=>id==="p1"?b:b+":"+id;       // chave local de um perfil
+const K=b=>KK(b,PR.cur);
+const D=id=>PR.cur==="p1"?id:PR.cur+"_"+id;  // documento do perfil na conta
+const isOther=id=>/^p[0-9a-z]+_/.test(id);
+function lsLoad(){try{const l=JSON.parse(localStorage.getItem(K(LK)));if(l)l.seen=l.seen||{};return l||null}catch(e){return null}}
+function lsSave(){try{localStorage.setItem(K(LK),JSON.stringify(H))}catch(e){}}
+function lsTime(){try{const t=JSON.parse(localStorage.getItem(K(LKT)));if(t&&t.d)TM={d:t.d,g:t.g||1800,i:t.i||3}}catch(e){}}
+async function saveProfiles(){try{localStorage.setItem(LKP,JSON.stringify(PR))}catch(e){}if(db){try{await db.collection("data/users/"+uid).doc("profiles").set({list:PR.list})}catch(e){}}}
 async function saveTime(){
-  try{localStorage.setItem(LKT,JSON.stringify(TM))}catch(e){}
-  if(db){try{await db.collection("data/users/"+uid).doc("time").set({d:TM.d,g:TM.g,i:TM.i||3})}catch(e){}}
+  try{localStorage.setItem(K(LKT),JSON.stringify(TM))}catch(e){}
+  if(db){try{await db.collection("data/users/"+uid).doc(D("time")).set({d:TM.d,g:TM.g,i:TM.i||3})}catch(e){}}
 }
-async function init(){
-  lsTime();
-  try{const d=await claude.use("db"),u=await claude.use("user");if(d&&u){db=d;uid=await u.id()}}catch(e){}
+async function loadProfile(){
+  H={runs:[],weak:{},seen:{}};TM={d:{},g:1800,i:3};
   try{
     if(db){
-      const sn=await db.collection("data/users/"+uid).get();
-      H.runs=[];H.weak={};H.seen={};
-      sn.docs.forEach(x=>{const d=x.data()||{};
-        if(x.id==="weak"){H.weak=d.c||{};H.seen=d.s||{}}
-        else if(x.id==="time"){const loc=TM.d;TM={d:d.d||{},g:d.g||TM.g,i:d.i||TM.i||3};Object.keys(loc).forEach(k=>{if((loc[k]||0)>(TM.d[k]||0))TM.d[k]=loc[k]})}
-        else if(x.id[0]==="r")H.runs.push(d)});
-    }else{const l=lsLoad();if(l)H=l}
-  }catch(e){const l=lsLoad();if(l)H=l}
+      const docs=(await db.collection("data/users/"+uid).get()).docs;
+      const pd=docs.find(x=>x.id==="profiles");
+      if(pd){const l=(pd.data()||{}).list;if(l&&l.length){PR.list=l;if(!PR.list.some(p=>p.id===PR.cur))PR.cur=PR.list[0].id}}
+      lsTime();
+      const pre=PR.cur==="p1"?"":PR.cur+"_";
+      docs.forEach(x=>{const d=x.data()||{};let id=x.id;if(id==="profiles")return;
+        if(pre){if(!id.startsWith(pre))return;id=id.slice(pre.length)}else if(isOther(id))return;
+        if(id==="weak"){H.weak=d.c||{};H.seen=d.s||{}}
+        else if(id==="time"){const loc=TM.d;TM={d:d.d||{},g:d.g||TM.g,i:d.i||TM.i||3};Object.keys(loc).forEach(k=>{if((loc[k]||0)>(TM.d[k]||0))TM.d[k]=loc[k]})}
+        else if(id[0]==="r")H.runs.push(d)});
+    }else{lsTime();const l=lsLoad();if(l)H=l}
+  }catch(e){lsTime();const l=lsLoad();if(l)H=l}
+  goalMsg=todayS()>=TM.g;
+}
+function renderProf(){const p=prof();$("pbtn").textContent=p.e+" "+p.n+" ▾"}
+async function switchProfile(id){
+  if(id===PR.cur)return;
+  await saveTime();PR.cur=id;await saveProfiles();await loadProfile();renderProf();tick(true);go("home");
+  toast("Perfil: "+prof().e+" "+prof().n);
+}
+async function init(){
+  renderProf();
+  try{const d=await claude.use("db"),u=await claude.use("user");if(d&&u){db=d;uid=await u.id()}}catch(e){}
+  await loadProfile();renderProf();
   tick(true);
-  if(view==="home")drawHome();if(view==="hist")drawHist();
+  if(view==="home")drawHome();if(view==="cat")drawCat();if(view==="hist")drawHist();if(view==="ana")drawAna();
 }
 async function saveRun(){
   const ms=new Set(missed.map(x=>x.idx));const rev=lab==="Revisão de erros";const r={t:Date.now(),n:deck.length,f:first,b:lab+(TY()?" ✍":""),m:[...ms],tp:TPc,q:deck.map(x=>x.idx)};
   H.runs.push(r);
   deck.forEach(x=>{H.seen[x.idx]=H.runs.length;if(ms.has(x.idx))H.weak[x.idx]=(H.weak[x.idx]||0)+1;else if(!rev&&H.weak[x.idx]>1)H.weak[x.idx]--;else delete H.weak[x.idx]});
   try{
-    if(db){const c=db.collection("data/users/"+uid);await c.doc("r"+r.t).set(r);await c.doc("weak").set({c:H.weak,s:H.seen})}
-    else lsSave();
+    if(db){const c=db.collection("data/users/"+uid);await c.doc(D("r"+r.t)).set(r);await c.doc(D("weak")).set({c:H.weak,s:H.seen})}
+    lsSave();
   }catch(e){lsSave()}
 }
 
@@ -359,12 +390,12 @@ let view="home";
 function go(v){
   view=v;if(v!=="quiz")inRound=false;
   $("an").hidden=v!=="ana";$("t3").className=v==="ana"?"on":"";if(v==="ana")drawAna();
-  $("home").hidden=v!=="home"&&v!=="cat";$("qz").hidden=v!=="quiz";$("hs").hidden=v!=="hist";$("cfg").hidden=v!=="cfg";
+  $("home").hidden=v!=="home"&&v!=="cat";$("qz").hidden=v!=="quiz";$("hs").hidden=v!=="hist";$("cfg").hidden=v!=="cfg";$("pf").hidden=v!=="prof";if(v==="prof")drawProf();
   $("t1").className=(v==="home"||v==="cat"||v==="quiz")?"on":"";$("t2").className=v==="hist"?"on":"";
   if(v==="home"){done=true;drawHome()}if(v==="cat"){done=true;drawCat()}if(v==="hist")drawHist();if(v==="cfg")drawCfg();tick(true);
   scrollTo(0,0);
 }
-$("t1").onclick=()=>go("home");$("gear").onclick=()=>go("cfg");$("t3").onclick=()=>go("ana");$("t2").onclick=()=>go("hist");
+$("t1").onclick=()=>go("home");$("gear").onclick=()=>go("cfg");$("pbtn").onclick=()=>go("prof");$("t3").onclick=()=>go("ana");$("t2").onclick=()=>go("hist");
 
 /* ---------- tela inicial ---------- */
 function lastPct(id){const r=H.runs.filter(r=>(r.tp||"c152")===id).sort((a,b)=>b.t-a.t)[0];return r?Math.round(r.f/r.n*100):null}
@@ -621,6 +652,57 @@ function drawAna(){
   }
 }
 
+/* ---------- perfis ---------- */
+const EMO=["🧑‍✈️","👩‍✈️","👨‍✈️","🛩️","🦅","⭐","🚀","🌤️"];
+function drawProf(){
+  const h=$("pf");h.innerHTML="";const c=el("div","card");h.appendChild(c);
+  const bk=el("button","back","← Voltar");bk.onclick=()=>go("home");c.appendChild(bk);
+  c.appendChild(el("p","q","👤 Perfis"));
+  c.appendChild(el("p","help","Cada perfil tem seu próprio histórico, análise, meta e tempo de estudo."));
+  PR.list.forEach(p=>{
+    const r=el("div","prow"),nm=el("div","pnm");nm.appendChild(el("span","pem",p.e));nm.appendChild(el("b",null,p.n));r.appendChild(nm);
+    const act=el("div","pact");
+    if(p.id===PR.cur){const s=el("span","lv","Em uso");s.style.color="var(--ok)";act.appendChild(s)}
+    else{const u=el("button","sbtn pri","Usar");u.onclick=()=>switchProfile(p.id);act.appendChild(u)}
+    const ed=el("button","sbtn","Editar");ed.onclick=()=>editForm(p);act.appendChild(ed);
+    r.appendChild(act);c.appendChild(r);
+  });
+  const nb=el("button","go","+ Novo perfil");nb.style.marginTop="14px";nb.onclick=()=>editForm(null);c.appendChild(nb);
+  const fm=el("div");fm.id="pform";c.appendChild(fm);
+}
+function editForm(p){
+  const fm=$("pform");fm.innerHTML="";
+  const box=el("div","card");box.style.cssText="margin:14px 0 0;box-shadow:none;background:var(--bg)";fm.appendChild(box);
+  box.appendChild(el("div","lbl",p?"Editar perfil":"Novo perfil"));
+  const inp=el("input","in");inp.placeholder="Nome (ex.: Dani)";inp.maxLength=20;inp.value=p?p.n:"";inp.style.background="var(--card)";box.appendChild(inp);
+  let em=p?p.e:EMO[1];
+  const er=el("div","emo");EMO.forEach(x=>{const b=el("button",x===em?"on":"",x);b.onclick=()=>{em=x;er.querySelectorAll("button").forEach(y=>y.className=y.textContent===em?"on":"")};er.appendChild(b)});box.appendChild(er);
+  const msg=el("div","msg");
+  const sv=el("button","go",p?"Salvar":"Criar e usar este perfil");
+  sv.onclick=async()=>{
+    const n=inp.value.trim();if(!n){msg.className="msg er";msg.textContent="Digite um nome.";return}
+    if(p){p.n=n;p.e=em;await saveProfiles();renderProf();drawProf();toast("✓ Perfil salvo")}
+    else{const np={id:"p"+Date.now().toString(36),n,e:em};PR.list.push(np);await saveProfiles();await switchProfile(np.id)}
+  };
+  box.appendChild(sv);
+  if(p&&PR.list.length>1){
+    if(p.id===PR.cur)box.appendChild(el("p","note","Para excluir este perfil, use outro perfil primeiro."));
+    else{
+      const del=el("button","go sec dang","Excluir perfil");let armed=false;
+      del.onclick=async()=>{
+        if(!armed){armed=true;del.textContent="Toque de novo: apaga o histórico de "+p.n;setTimeout(()=>{if(armed){armed=false;del.textContent="Excluir perfil"}},4000);return}
+        PR.list=PR.list.filter(x=>x.id!==p.id);await saveProfiles();
+        try{localStorage.removeItem(KK(LK,p.id));localStorage.removeItem(KK(LKT,p.id))}catch(e){}
+        if(db){try{const c=db.collection("data/users/"+uid),pre=p.id==="p1"?"":p.id+"_";const ds=(await c.get()).docs.filter(x=>pre?x.id.startsWith(pre):(!isOther(x.id)&&x.id!=="profiles"));for(const x of ds)await c.doc(x.id).delete()}catch(e){}}
+        drawProf();toast("Perfil excluído");
+      };
+      box.appendChild(del);
+    }
+  }
+  box.appendChild(msg);
+  box.scrollIntoView({behavior:"smooth",block:"nearest"});if(!p)setTimeout(()=>inp.focus(),50);
+}
+
 /* ---------- configurações ---------- */
 function drawCfg(){
   const h=$("cfg");h.innerHTML="";
@@ -637,6 +719,15 @@ function drawCfg(){
   c.appendChild(el("div","lbl","Pausar o cronômetro depois de ficar parado por"));
   const ch2=el("div","seg");[1,2,3,5].forEach(v=>{const b=el("button",null,v+" min");b.dataset.v=v;b.onclick=()=>{it=v;upd()};ch2.appendChild(b)});c.appendChild(ch2);
   c.appendChild(el("p","note","O tempo só conta enquanto você responde um questionário, com o app aberto na tela. Fora disso (tela inicial, histórico, configurações) ele fica pausado."));
+  c.appendChild(el("div","lbl","Cronômetro de hoje"));
+  const rs=el("button","go sec");rs.style.marginTop="0";let armed=false;
+  const rl=()=>rs.textContent="⏱️ Zerar o tempo de hoje ("+fmt(todayS())+")";rl();
+  rs.onclick=()=>{
+    if(!armed){armed=true;rs.textContent="Toque de novo para confirmar";rs.classList.add("dang");setTimeout(()=>{if(armed){armed=false;rs.classList.remove("dang");rl()}},4000);return}
+    armed=false;rs.classList.remove("dang");TM.d[dk()]=0;goalMsg=false;saveTime();tick(true);rl();toast("⏱️ Tempo de hoje zerado");
+  };
+  c.appendChild(rs);
+  c.appendChild(el("p","note","Vale só para hoje e para o perfil "+prof().e+" "+prof().n+". Os outros dias não mudam."));
   c.appendChild(el("p","note","Versão do app: "+APPV));
   const sv=el("button","go","Salvar");sv.style.marginTop="16px";
   sv.onclick=()=>{TM.g=g*60;TM.i=it;goalMsg=todayS()>=TM.g;saveTime();toast("✓ Meta: "+g+" min por dia");go("home")};c.appendChild(sv);
@@ -699,7 +790,7 @@ async function importData(txt){
   Object.entries(o.H.weak||{}).forEach(([k,v])=>H.weak[k]=Math.max(H.weak[k]||0,v));
   Object.entries(o.H.seen||{}).forEach(([k,v])=>H.seen[k]=Math.max(H.seen[k]||0,v));
   Object.entries((o.TM||{}).d||{}).forEach(([k,v])=>TM.d[k]=Math.max(TM.d[k]||0,v));
-  if(db){try{const c=db.collection("data/users/"+uid);for(const r of nw)await c.doc("r"+r.t).set(r);await c.doc("weak").set({c:H.weak,s:H.seen})}catch(e){}}
+  if(db){try{const c=db.collection("data/users/"+uid);for(const r of nw)await c.doc(D("r"+r.t)).set(r);await c.doc(D("weak")).set({c:H.weak,s:H.seen})}catch(e){}}
   lsSave();await saveTime();
   return nw.length;
 }
