@@ -30,6 +30,12 @@ button{font:inherit;color:inherit;cursor:pointer}
 .hr{display:flex;gap:8px;align-items:center;flex:none}
 .gear{width:38px;height:38px;border-radius:50%;background:var(--card);border:1px solid var(--bd);box-shadow:var(--sh);font-size:1.05rem;display:flex;align-items:center;justify-content:center;padding:0}
 .lbl{font-weight:600;margin:16px 0 8px}
+.area{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:18px 16px;box-shadow:var(--sh);margin-bottom:12px}
+.area:hover{border-color:var(--ac)}
+.aic{flex:none;width:58px;height:58px;border-radius:16px;background:var(--ac2);display:flex;align-items:center;justify-content:center;font-size:1.9rem}
+.atx{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0}.atx b{font-size:1.15rem}.atx .s,.chd .s{font-size:.82rem;color:var(--mu)}
+.aar{flex:none;font-size:1.8rem;color:var(--mu);line-height:1}
+.chd{display:flex;align-items:center;gap:14px;margin:0 2px 4px}.chd h2{margin:0 0 2px;font-size:1.3rem}
 .kp{display:flex;gap:10px;margin:4px 0 12px}.kpi{flex:1;background:var(--bg);border-radius:12px;padding:12px 8px;text-align:center}
 .kpi b{display:block;font-size:1.55rem;font-variant-numeric:tabular-nums}.kpi span{font-size:.76rem;color:var(--mu)}
 .ins{font-size:.95rem;line-height:1.5;margin:0 0 6px}
@@ -246,14 +252,16 @@ const TEMAS=[
 /* ↑ Cole novos temas aqui, separados por vírgula. */
 ];
 
-const APPV="24/11/2026 · v4";
-const CATS=[["clube","Aeroclube · C152"],["pc","Teoria · Piloto Comercial"]];
+const APPV="24/11/2026 · v5";
+const CATS=[["clube","Aeroclube","🛩️","Tabela de estudo e conteúdos do C152"],["pc","Piloto Comercial","🎓","Teoria do curso PC"]];
+let CATc="clube";
 const ALL=[],KM={};
 TEMAS.forEach(t=>t.q.forEach((f,k)=>{const e={f,k:t.id==="c152"?String(k):t.id+":"+k,tp:t.id};ALL.push(e);KM[e.k]=e}));
 let TPc="c152";
 const tObj=id=>TEMAS.find(t=>t.id===id);
-const tName=id=>id==="all"?"Todos os temas":((tObj(id)||{}).n||id);
-const LT=()=>TPc==="all"?ALL:ALL.filter(e=>e.tp===TPc);
+const catOf=id=>id.startsWith("cat:")?id.slice(4):((tObj(id)||{}).cat||"clube");
+const tName=id=>id==="all"?"Todos os temas":id.startsWith("cat:")?"Misturar: "+(CATS.find(c=>c[0]===id.slice(4))||[0,id])[1]:((tObj(id)||{}).n||id);
+const LT=()=>TPc==="all"?ALL:TPc.startsWith("cat:")?ALL.filter(e=>tObj(e.tp).cat===TPc.slice(4)):ALL.filter(e=>e.tp===TPc);
 const num=s=>parseFloat(String(s).replace(/\./g,"").replace(",",".").replace("−","-"));
 const sh=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
 const $=id=>document.getElementById(id);
@@ -351,9 +359,9 @@ let view="home";
 function go(v){
   view=v;if(v!=="quiz")inRound=false;
   $("an").hidden=v!=="ana";$("t3").className=v==="ana"?"on":"";if(v==="ana")drawAna();
-  $("home").hidden=v!=="home";$("qz").hidden=v!=="quiz";$("hs").hidden=v!=="hist";$("cfg").hidden=v!=="cfg";
-  $("t1").className=(v==="home"||v==="quiz")?"on":"";$("t2").className=v==="hist"?"on":"";
-  if(v==="home"){done=true;drawHome()}if(v==="hist")drawHist();if(v==="cfg")drawCfg();tick(true);
+  $("home").hidden=v!=="home"&&v!=="cat";$("qz").hidden=v!=="quiz";$("hs").hidden=v!=="hist";$("cfg").hidden=v!=="cfg";
+  $("t1").className=(v==="home"||v==="cat"||v==="quiz")?"on":"";$("t2").className=v==="hist"?"on":"";
+  if(v==="home"){done=true;drawHome()}if(v==="cat"){done=true;drawCat()}if(v==="hist")drawHist();if(v==="cfg")drawCfg();tick(true);
   scrollTo(0,0);
 }
 $("t1").onclick=()=>go("home");$("gear").onclick=()=>go("cfg");$("t3").onclick=()=>go("ana");$("t2").onclick=()=>go("hist");
@@ -380,16 +388,31 @@ function drawHome(){
     const p=el("p");p.innerHTML="<b>Instale no iPhone para usar offline:</b> no Safari, toque em <b>Compartilhar</b> (quadrado com seta ⬆️) e depois em <b>Adicionar à Tela de Início</b>.";ic.appendChild(p);
     h.insertBefore(ic,g);
   }
-  CATS.forEach(([c,nm])=>{
-    const ts=TEMAS.filter(t=>t.cat===c);
-    const sc=el("div","sect");sc.appendChild(el("h3",null,nm));sc.appendChild(el("span",null,ts.length+(ts.length===1?" tema":" temas")));h.appendChild(sc);
-    const gr=el("div","grid");h.appendChild(gr);
-    ts.forEach(t=>gr.appendChild(tcard(t.ic||"📘",t.n,t.q.length+" questões",lastPct(t.id),()=>openTopic(t.id))));
-    if(c==="pc")gr.appendChild(addCard());
+  const sc=el("div","sect");sc.appendChild(el("h3",null,"Escolha a área"));h.appendChild(sc);
+  CATS.forEach(([c,nm,ic,desc])=>{
+    const ts=TEMAS.filter(t=>t.cat===c),ks=ALL.filter(e=>tObj(e.tp).cat===c);
+    const nv=ks.filter(e=>!H.seen[e.k]).length,wk=ks.filter(e=>H.seen[e.k]&&H.weak[e.k]).length,ok=ks.length-nv-wk;
+    const btn=el("button","area");
+    btn.appendChild(el("span","aic",ic));
+    const tx2=el("span","atx");tx2.appendChild(el("b",null,nm));tx2.appendChild(el("span","s",desc));
+    tx2.appendChild(el("span","s",ts.length+(ts.length===1?" tema":" temas")+" · "+ks.length+" questões · "+ok+" acertando"));
+    const bar=el("span","dbar");[[ok,"var(--ok)"],[wk,"var(--er)"],[nv,"var(--bd)"]].forEach(([n,cl])=>{const i=el("i");i.style.width=(ks.length?n/ks.length*100:0)+"%";i.style.background=cl;bar.appendChild(i)});tx2.appendChild(bar);
+    btn.appendChild(tx2);btn.appendChild(el("span","aar","›"));
+    btn.onclick=()=>{CATc=c;go("cat")};h.appendChild(btn);
   });
-  const sc=el("div","sect");sc.appendChild(el("h3",null,"Misturar"));h.appendChild(sc);
+  tick(true);
+}
+function drawCat(){
+  const h=$("home");h.innerHTML="";
+  const [c,nm,ic,desc]=CATS.find(x=>x[0]===CATc);
+  const bk=el("button","back","← Início");bk.onclick=()=>go("home");h.appendChild(bk);
+  const hd=el("div","chd");hd.appendChild(el("span","aic",ic));const tx=el("div");tx.appendChild(el("h2",null,nm));tx.appendChild(el("span","s",desc));hd.appendChild(tx);h.appendChild(hd);
+  const ts=TEMAS.filter(t=>t.cat===c);
+  const sc=el("div","sect");sc.appendChild(el("h3",null,"Questionários"));sc.appendChild(el("span",null,ts.length+(ts.length===1?" tema":" temas")));h.appendChild(sc);
   const gr=el("div","grid");h.appendChild(gr);
-  gr.appendChild(tcard("🔀","Todos os temas",ALL.length+" questões",lastPct("all"),()=>openTopic("all")));
+  ts.forEach(t=>gr.appendChild(tcard(t.ic||"📘",t.n,t.q.length+" questões",lastPct(t.id),()=>openTopic(t.id))));
+  if(ts.length>1){const n=ALL.filter(e=>tObj(e.tp).cat===c).length;gr.appendChild(tcard("🔀","Misturar temas de "+nm,n+" questões",lastPct("cat:"+c),()=>openTopic("cat:"+c)))}
+  if(c==="pc")gr.appendChild(addCard());
   tick(true);
 }
 function tcard(ic,n,sub,pct,fn){
@@ -437,7 +460,7 @@ function menu(){
   done=true;inRound=false;tick(true);
   $("pb").style.width="0";$("pos").textContent=tName(TPc);$("sc").textContent=LT().length+" questões";
   const b=$("box");b.innerHTML="";
-  const bk=el("button","back","← Temas");bk.onclick=()=>go("home");b.appendChild(bk);
+  const bk=el("button","back",TPc==="all"?"← Início":"← "+(CATS.find(x=>x[0]===catOf(TPc))||[0,"Temas"])[1]);bk.onclick=()=>{if(TPc==="all")go("home");else{CATc=catOf(TPc);go("cat")}};b.appendChild(bk);
   b.appendChild(el("p","q","Como quer treinar?"));
   if(LT().some(e=>typable(e.f))){
     const tg=el("div","seg");
