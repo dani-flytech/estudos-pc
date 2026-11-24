@@ -235,6 +235,7 @@ const TEMAS=[
 /* ↑ Cole novos temas aqui, separados por vírgula. */
 ];
 
+const APPV="24/11/2026 · v3";
 const CATS=[["clube","Aeroclube · C152"],["pc","Teoria · Piloto Comercial"]];
 const ALL=[],KM={};
 TEMAS.forEach(t=>t.q.forEach((f,k)=>{const e={f,k:t.id==="c152"?String(k):t.id+":"+k,tp:t.id};ALL.push(e);KM[e.k]=e}));
@@ -534,6 +535,7 @@ function drawCfg(){
   c.appendChild(el("div","lbl","Pausar o cronômetro depois de ficar parado por"));
   const ch2=el("div","seg");[1,2,3,5].forEach(v=>{const b=el("button",null,v+" min");b.dataset.v=v;b.onclick=()=>{it=v;upd()};ch2.appendChild(b)});c.appendChild(ch2);
   c.appendChild(el("p","note","O tempo só conta enquanto você responde um questionário, com o app aberto na tela. Fora disso (tela inicial, histórico, configurações) ele fica pausado."));
+  c.appendChild(el("p","note","Versão do app: "+APPV));
   const sv=el("button","go","Salvar");sv.style.marginTop="16px";
   sv.onclick=()=>{TM.g=g*60;TM.i=it;goalMsg=todayS()>=TM.g;saveTime();toast("✓ Meta: "+g+" min por dia");go("home")};c.appendChild(sv);
   function upd(){vv.textContent=g+" min";ch.querySelectorAll("button").forEach(b=>b.className=+b.dataset.v===g?"on":"");ch2.querySelectorAll("button").forEach(b=>b.className=+b.dataset.v===it?"on":"")}
@@ -622,7 +624,14 @@ function drawBackup(h){
 go("home");
 init();
 if("serviceWorker" in navigator&&window.isSecureContext&&typeof claude==="undefined"){
-  navigator.serviceWorker.register("sw.js").catch(()=>{});
+  let hadCtl=!!navigator.serviceWorker.controller,reloaded=false;
+  navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(reg=>{
+    document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")reg.update().catch(()=>{})});
+  }).catch(()=>{});
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{
+    if(!hadCtl||reloaded)return;reloaded=true;
+    if(!inRound)location.reload();else toast("Nova versão baixada. Ela abre quando você terminar a rodada.");
+  });
   try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 }
 </script>
