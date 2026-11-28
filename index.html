@@ -425,7 +425,7 @@ const TEMAS=[
 /* ↑ Cole novos temas aqui, separados por vírgula. */
 ];
 
-const APPV="28/11/2026 · v8";
+const APPV="28/11/2026 · v9";
 const CATS=[["clube","Aeroclube","🛩️","Tabela de estudo e conteúdos do C152"],["pc","Piloto Comercial","🎓","Teoria do curso PC"],["st","Safe Talk","🛡️","B777, A380, A350, GMT e Security"]];
 let CATc="clube";
 const ALL=[],KM={};
@@ -455,7 +455,7 @@ function build(e){
 }
 
 /* ---------- perfis, estado e armazenamento ---------- */
-let db=null,uid=null,H={runs:[],weak:{},seen:{}},TM={d:{},g:1800,i:3};
+let db=null,uid=null,H={runs:[],weak:{},seen:{}},TM={d:{},g:1800,i:3,n:10};
 let typed=false;try{typed=!!localStorage.getItem("c152fmt")}catch(e){}
 const LKP="pcProfiles",LK="c152quiz",LKT="pcTime";
 let PR={list:[{id:"p1",n:"Meu perfil",e:"🧑‍✈️"}],cur:"p1"};
@@ -467,14 +467,14 @@ const D=id=>PR.cur==="p1"?id:PR.cur+"_"+id;  // documento do perfil na conta
 const isOther=id=>/^p[0-9a-z]+_/.test(id);
 function lsLoad(){try{const l=JSON.parse(localStorage.getItem(K(LK)));if(l)l.seen=l.seen||{};return l||null}catch(e){return null}}
 function lsSave(){try{localStorage.setItem(K(LK),JSON.stringify(H))}catch(e){}}
-function lsTime(){try{const t=JSON.parse(localStorage.getItem(K(LKT)));if(t&&t.d)TM={d:t.d,g:t.g||1800,i:t.i||3}}catch(e){}}
+function lsTime(){try{const t=JSON.parse(localStorage.getItem(K(LKT)));if(t&&t.d)TM={d:t.d,g:t.g||1800,i:t.i||3,n:t.n||10}}catch(e){}}
 async function saveProfiles(){try{localStorage.setItem(LKP,JSON.stringify(PR))}catch(e){}if(db){try{await db.collection("data/users/"+uid).doc("profiles").set({list:PR.list})}catch(e){}}}
 async function saveTime(){
   try{localStorage.setItem(K(LKT),JSON.stringify(TM))}catch(e){}
-  if(db){try{await db.collection("data/users/"+uid).doc(D("time")).set({d:TM.d,g:TM.g,i:TM.i||3})}catch(e){}}
+  if(db){try{await db.collection("data/users/"+uid).doc(D("time")).set({d:TM.d,g:TM.g,i:TM.i||3,n:TM.n||10})}catch(e){}}
 }
 async function loadProfile(){
-  H={runs:[],weak:{},seen:{}};TM={d:{},g:1800,i:3};
+  H={runs:[],weak:{},seen:{}};TM={d:{},g:1800,i:3,n:10};
   try{
     if(db){
       const docs=(await db.collection("data/users/"+uid).get()).docs;
@@ -485,7 +485,7 @@ async function loadProfile(){
       docs.forEach(x=>{const d=x.data()||{};let id=x.id;if(id==="profiles")return;
         if(pre){if(!id.startsWith(pre))return;id=id.slice(pre.length)}else if(isOther(id))return;
         if(id==="weak"){H.weak=d.c||{};H.seen=d.s||{}}
-        else if(id==="time"){const loc=TM.d;TM={d:d.d||{},g:d.g||TM.g,i:d.i||TM.i||3};Object.keys(loc).forEach(k=>{if((loc[k]||0)>(TM.d[k]||0))TM.d[k]=loc[k]})}
+        else if(id==="time"){const loc=TM.d;TM={d:d.d||{},g:d.g||TM.g,i:d.i||TM.i||3,n:d.n||TM.n||10};Object.keys(loc).forEach(k=>{if((loc[k]||0)>(TM.d[k]||0))TM.d[k]=loc[k]})}
         else if(id[0]==="r")H.runs.push(d)});
     }else{lsTime();const l=lsLoad();if(l)H=l}
   }catch(e){lsTime();const l=lsLoad();if(l)H=l}
@@ -665,8 +665,8 @@ function menu(){
   }else b.appendChild(el("div","note","Este tema é de múltipla escolha, com explicação depois de cada resposta."));
   b.appendChild(el("div",null," "));
   const add=(txt,sub,fn)=>{const e=el("button","opt");e.appendChild(el("strong",null,txt));e.appendChild(el("small",null,sub));e.onclick=fn;b.appendChild(e)};
-  const sm=Math.min(15,LT().filter(e=>!TY()||typable(e.f)).length);
-  add("🧠 Inteligente · "+sm+" questões","Prioriza as que você erra e as que não vê há mais tempo",()=>start(smart(15),"Inteligente 15"));
+  const NQ=TM.n||10,sm=Math.min(NQ,LT().filter(e=>!TY()||typable(e.f)).length);
+  add("🧠 Inteligente · "+sm+" questões","Prioriza as que você erra e as que não vê há mais tempo",()=>start(smart(NQ),"Inteligente "+NQ));
   add("🔁 Revisão de erros","Só as que você errou nas últimas 10 rodadas: "+revList().length+" pendentes",()=>{const l=revList();if(l.length)start(l,"Revisão de erros");else $("mm").textContent="Nenhum erro pendente. 👏"});
   const TL=TY()?LT().filter(e=>typable(e.f)):LT();add("📋 Todas · "+TL.length+" questões","Rodada completa, embaralhada",()=>start(TL,"Todas"));
   const mm=el("div","msg");mm.id="mm";b.appendChild(mm);
@@ -881,6 +881,8 @@ function drawCfg(){
   st.append(mi,vv,pl);c.appendChild(st);
   const ch=el("div","seg");[15,30,45,60,90].forEach(v=>{const b=el("button",null,v+" min");b.dataset.v=v;b.onclick=()=>{g=v;upd()};ch.appendChild(b)});c.appendChild(ch);
   mi.onclick=()=>{g=Math.max(5,g-5);upd()};pl.onclick=()=>{g=Math.min(240,g+5);upd()};
+  c.appendChild(el("div","lbl","Questões por rodada (modo Inteligente)"));
+  let nq=TM.n||10;const ch3=el("div","seg");[5,10,15,20,30].forEach(v=>{const b=el("button",null,String(v));b.dataset.v=v;b.onclick=()=>{nq=v;upd()};ch3.appendChild(b)});c.appendChild(ch3);
   c.appendChild(el("div","lbl","Pausar o cronômetro depois de ficar parado por"));
   const ch2=el("div","seg");[1,2,3,5].forEach(v=>{const b=el("button",null,v+" min");b.dataset.v=v;b.onclick=()=>{it=v;upd()};ch2.appendChild(b)});c.appendChild(ch2);
   c.appendChild(el("p","note","O tempo só conta enquanto você responde um questionário, com o app aberto na tela. Fora disso (tela inicial, histórico, configurações) ele fica pausado."));
@@ -895,8 +897,8 @@ function drawCfg(){
   c.appendChild(el("p","note","Vale só para hoje e para o perfil "+prof().e+" "+prof().n+". Os outros dias não mudam."));
   c.appendChild(el("p","note","Versão do app: "+APPV));
   const sv=el("button","go","Salvar");sv.style.marginTop="16px";
-  sv.onclick=()=>{TM.g=g*60;TM.i=it;goalMsg=todayS()>=TM.g;saveTime();toast("✓ Meta: "+g+" min por dia");go("home")};c.appendChild(sv);
-  function upd(){vv.textContent=g+" min";ch.querySelectorAll("button").forEach(b=>b.className=+b.dataset.v===g?"on":"");ch2.querySelectorAll("button").forEach(b=>b.className=+b.dataset.v===it?"on":"")}
+  sv.onclick=()=>{TM.g=g*60;TM.i=it;TM.n=nq;goalMsg=todayS()>=TM.g;saveTime();toast("✓ Meta: "+g+" min por dia");go("home")};c.appendChild(sv);
+  function upd(){vv.textContent=g+" min";ch.querySelectorAll("button").forEach(b=>b.className=+b.dataset.v===g?"on":"");ch2.querySelectorAll("button").forEach(b=>b.className=+b.dataset.v===it?"on":"");ch3.querySelectorAll("button").forEach(b=>b.className=+b.dataset.v===nq?"on":"")}
   upd();
 }
 
